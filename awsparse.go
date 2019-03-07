@@ -10,9 +10,24 @@ import (
 )
 
 func main() {
-	datafile := os.Args[1]
 
-	csvFile, _ := os.Open(datafile)
+	// available commands
+	commands := map[string]int{
+		"check-header": 1,
+	}
+	command := os.Args[1]
+	commandVal, exists := commands[command]
+
+	if commandVal!=1 || !exists {
+		fmt.Printf("Command %s is not available!\n", command)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Executing command: %s ...\n", command)
+	os.Exit(0)
+
+	dataFile := "something"
+	csvFile, _ := os.Open(dataFile)
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	reader.Comma = '\t'
 
