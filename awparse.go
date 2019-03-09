@@ -2,35 +2,26 @@ package main
 
 import (
 	"bufio"
-	"encoding/csv"
 	"fmt"
-	"io"
 	"log"
 	"os"
+
+	"github.com/urfave/cli"
 )
 
-func main() {
 
-	// available commands
-	commands := map[string]int{
-		"check-header": 1,
-	}
-	command := os.Args[1]
-	commandVal, exists := commands[command]
+func readHeader(fileName string) {
+	fh, _ := os.Open(fileName)
 
-	if commandVal!=1 || !exists {
-		fmt.Printf("Command %s is not available!\n", command)
-		os.Exit(1)
+	s := bufio.NewScanner(fh)
+	for s.Scan() {
+		fmt.Println(s.Text())
 	}
 
-	fmt.Printf("Executing command: %s ...\n", command)
-	os.Exit(0)
-
-	dataFile := "something"
-	csvFile, _ := os.Open(dataFile)
-	reader := csv.NewReader(bufio.NewReader(csvFile))
+	/**
+	reader := csv.NewReader(bufio.NewReader(fh))
 	reader.Comma = '\t'
-
+	reader.FieldsPerRecord = -1
 	for {
 		line, e := reader.Read()
 		if e == io.EOF {
@@ -40,4 +31,29 @@ func main() {
 		}
 		fmt.Println(line)
 	}
+	**/
+}
+
+
+func main() {
+
+	app := cli.NewApp()
+
+	app.Commands = []cli.Command{
+		{
+			Name:    "checkheader",
+			Aliases: []string{"ch"},
+			Usage:   "Check header definition file",
+			Action: func(c *cli.Context) error {
+				readHeader(c.Args().First())
+				return nil
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }

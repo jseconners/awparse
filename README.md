@@ -1,5 +1,5 @@
-# awsparse
+# awparse
 
 
-Parser and checker for automated weather station data 
-archive, specifically from AMRC
+Parser for automated weather station data 
+archive from AMRC
