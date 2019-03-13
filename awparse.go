@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"github.com/araddon/dateparse"
 	"github.com/schollz/progressbar"
 	"github.com/urfave/cli"
@@ -15,6 +16,11 @@ import (
 	"strconv"
 )
 
+
+type HeaderScore struct {
+	FilePath string
+	Score int
+}
 
 type CSVW struct {
 	File *os.File
@@ -189,24 +195,40 @@ func getHeaders(dataFiles *[]string) [][]string {
 	return headers
 }
 
+func headersEqual(h1, h2 []string) bool {
+	if len(h1) != len(h2) {
+		return false
+	}
+	for i := 0; i < len(h1); i++ {
+		if h1[i] != h2[i] {
+			return false
+		}
+	}
+	return true
+}
 
-func checkHeaders(dataFiles *[]string) bool {
+
+func checkHeaders(dataFiles *[]string) []HeaderScore {
 	headers := getHeaders(dataFiles)
-	scores := make([][]int, len(headers))
+	var scores []HeaderScore
 
 	for i := 0; i < len(headers); i++ {
 		score := 0
 		for j := 0; j < len(headers); j++ {
-			if (i==j) {
+			if  i==j {
 				continue
 			}
-			if (headers[i] != headers[j]) {
+			if !headersEqual(headers[i], headers[j]) {
 				score += 1
 			}
 		}
-		scores[i] = score
+		// any header that doesn't match to more than one is bad
+		// to exclude others with single match against a common bad one
+		if score > 1 {
+			scores = append(scores, HeaderScore{(*dataFiles)[i], score})
+		}
 	}
-	return false
+	return scores
 }
 
 
@@ -216,8 +238,12 @@ func checkHeaders(dataFiles *[]string) bool {
 func makeCSV(dataDir string, glob string) {
 	allDataFiles := getAllSortedDataFiles(dataDir, glob)
 
-	headerCheck := checkHeaders(&allDataFiles)
+	headerScores := checkHeaders(&allDataFiles)
+	for _, h := range headerScores {
+		fmt.Println(h)
+	}
 	return
+
 
 
 	bar := progressbar.New(len(allDataFiles))
