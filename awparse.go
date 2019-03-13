@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
+	"github.com/araddon/dateparse"
 	"github.com/schollz/progressbar"
 	"github.com/urfave/cli"
 	"io"
@@ -12,6 +14,56 @@ import (
 	"sort"
 	"strconv"
 )
+
+
+type CSVW struct {
+	File *os.File
+	Writer *csv.Writer
+}
+
+func NewCSVW(filePath string) *CSVW {
+	csvw := new(CSVW)
+	fh, _ := os.Create(filePath)
+	csvw.File = fh
+	csvw.Writer = csv.NewWriter(csvw.File)
+	csvw.Writer.Comma = ','
+	return csvw
+}
+
+func (csvw *CSVW) Close() {
+	csvw.Writer.Flush()
+	csvw.File.Close()
+}
+
+
+type CSVR struct {
+	FilePath string
+	File *os.File
+	Reader *csv.Reader
+}
+
+func NewCSVR(filePath string) *CSVR {
+	csvr := new(CSVR)
+	csvr.FilePath = filePath
+	csvr.File, _ = os.Open(filePath)
+	csvr.SetReader()
+	return csvr
+}
+
+func (c *CSVR) SetReader() {
+	c.Reader = csv.NewReader(bufio.NewReader(c.File))
+	c.Reader.Comma = '\t'
+	c.Reader.FieldsPerRecord = -1
+}
+
+func (c *CSVR) Close() {
+	c.File.Close()
+}
+
+func (c *CSVR) Rewind() {
+	c.File.Seek(0, 0)
+	c.SetReader()
+}
 
 
 // Ordered month full name slice
@@ -35,6 +87,19 @@ func fileExists(pathStr string) bool {
 func dataFileDay(fileName string) int {
 	dayInt, _ := strconv.Atoi(fileName[6:8])
 	return dayInt
+}
+
+/**
+ * Check if a row of values contains a date
+ */
+func containsDate(row []string) bool {
+	for _, val := range row {
+		_, e := dateparse.ParseAny(val)
+		if e == nil {
+			return true
+		}
+	}
+	return false
 }
 
 
@@ -81,37 +146,100 @@ func getAllSortedDataFiles(dirName string, glob string) []string {
 
 
 /**
+ * Detect and return the header row for a CSVR and set its read offset
+ * so the next Read() returns the first data record. Or return an empty
+ * slice and error if header row couldn't be detected
+ */
+func getHeader(csvr *CSVR) ([]string, error) {
+	max_depth := 5
+	row_index := 0
+
+	var rows [][]string
+	for {
+		line, e := csvr.Reader.Read()
+		if e != nil || e == io.EOF || row_index == max_depth {
+			return make([]string, 0), errors.New("could not detect header")
+		}
+		if containsDate(line) && len(rows) > 0 {
+			// Rewind and advance to next read is from first data record
+			csvr.Rewind()
+			for i := 0; i < row_index; i++ {
+				csvr.Reader.Read()
+			}
+			return rows[row_index - 1], nil
+		} else {
+			rows = append(rows, line)
+		}
+		row_index += 1
+	}
+}
+
+func getHeaders(dataFiles *[]string) [][]string {
+	var headers [][]string
+	for _, df := range *dataFiles {
+		csvr := NewCSVR(df)
+		header, err := getHeader(csvr)
+		csvr.Close()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		headers = append(headers, header)
+	}
+	return headers
+}
+
+
+func checkHeaders(dataFiles *[]string) bool {
+	headers := getHeaders(dataFiles)
+	scores := make([][]int, len(headers))
+
+	for i := 0; i < len(headers); i++ {
+		score := 0
+		for j := 0; j < len(headers); j++ {
+			if (i==j) {
+				continue
+			}
+			if (headers[i] != headers[j]) {
+				score += 1
+			}
+		}
+		scores[i] = score
+	}
+	return false
+}
+
+
+/**
  * Parse data files and write generated CSV to stdout
  */
 func makeCSV(dataDir string, glob string) {
 	allDataFiles := getAllSortedDataFiles(dataDir, glob)
+
+	headerCheck := checkHeaders(&allDataFiles)
+	return
+
+
 	bar := progressbar.New(len(allDataFiles))
 
-	outFile, _ := os.Create("data.csv")
-	writer := csv.NewWriter(outFile)
-	writer.Comma = ','
 
+	csvw := NewCSVW("data.csv")
 	for _, df := range allDataFiles {
 		bar.Add(1)
 
-		inFile, _ := os.Open(df)
-		reader := csv.NewReader(bufio.NewReader(inFile))
-		reader.Comma = '\t'
-		reader.FieldsPerRecord = -1
-
+		csvr := NewCSVR(df)
 		for {
-			line, e := reader.Read()
+			line, e := csvr.Reader.Read()
 			if e == io.EOF {
 				break
 			} else if e != nil {
 				log.Fatal(e)
 			}
-			writer.Write(line)
+			csvw.Writer.Write(line)
 		}
-		inFile.Close()
+		csvr.Close()
 	}
-	writer.Flush()
-	outFile.Close()
+	csvw.Close()
 }
 
 
