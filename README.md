@@ -48,3 +48,7 @@ The above would consider `observations/` the data archive root
 directory, would match all data files within each `<year>/<month>/` directory
 using `*.100` and would generate a single sorted CSV file named
 `output.csv`
+
+### Installation
+1. Clone respository
+2. `cd` into repository and run `go build` to generate an `awparse` binary 
