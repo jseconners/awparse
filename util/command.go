@@ -50,6 +50,11 @@ func MakeCSV(dataDir string, glob string, outputFile string) {
 		dr := NewDataReader(f, '\t', true, true)
 		h, _ := dr.GetHeader(5)
 
+		// replace whitespace in header fields
+		for i, field := range h {
+			h[i] = replaceWhiteSpace(field, "_")
+		}
+
 		// write the output header if not already
 		if !headerWritten {
 			dw.Writer.Write(h)
@@ -64,6 +69,8 @@ func MakeCSV(dataDir string, glob string, outputFile string) {
 			} else if e != nil {
 				log.Fatal(e)
 			}
+			// trim whitespace from row items and write to output
+			trimFields(&line)
 			dw.Writer.Write(line)
 		}
 		dr.Close()

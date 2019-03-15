@@ -5,9 +5,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 )
+
+// regex for string spaces
+var spaceRegex = regexp.MustCompile(`\s+`)
 
 // ordered month full names
 var months = []string {
@@ -151,4 +156,16 @@ func sliceContainsString(items []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// trim and replace whitespace with underscore
+func replaceWhiteSpace(item string, repl string) string {
+	return spaceRegex.ReplaceAllLiteralString(strings.TrimSpace(item), repl)
+}
+
+// trim whitespace from string items in place
+func trimFields(items *[]string) {
+	for i, item := range *items {
+		(*items)[i] = strings.TrimSpace(item)
+	}
 }
